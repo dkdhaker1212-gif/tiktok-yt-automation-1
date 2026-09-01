@@ -1,6 +1,8 @@
 name: "Channel 1 - Daily Upload (13:30 UTC / 7 PM IST)"
 
 on:
+  schedule:
+    - cron: "30 13 * * *"      # 13:30 UTC daily = 7:00 PM IST (may drift a few min)
   workflow_dispatch:
     inputs:
       channel:
@@ -12,8 +14,8 @@ on:
         required: false
         default: "false"
 
-# No GitHub cron here on purpose -- cron-job.org fires the dispatch at the exact
-# minute the video should go public (Automation.md Section 7).
+# The per-day guard (runs table) makes re-triggers on the same UTC day a no-op,
+# so a delayed cron run + a manual dispatch cannot double-post.
 
 concurrency:
   group: upload-channel_1
