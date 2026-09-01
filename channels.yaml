@@ -3,8 +3,8 @@
 
 channels:
   - id: channel_1                         # unique; used in DB, logs, secret names
-    tiktok_username: "kimvirtanen"        # no @  -- source profile
-    youtube_channel_name: "FurryFollies"  # https://www.youtube.com/@FurryFollies-v2p
+    tiktok_username: "kimvirtanen"        # no @  -- source profile (forestry machines)
+    youtube_channel_name: "Timber Titans" # https://www.youtube.com/@FurryFollies-v2p
     owner_email: "dkdhaker1212@gmail.com"
     # ^ ALWAYS record: the Gmail that owns the YouTube channel AND the GCP project.
     #   Not derivable later; needed to sign in on a phone.
@@ -14,8 +14,10 @@ channels:
 
     videos_per_day: 2
     description_footer: ""
-    default_tags: [animals, cute, funny, pets, viral]
-    youtube_category_id: "15"             # 15 Pets&Animals, 22 People&Blogs, 23 Comedy,
+    default_tags: [forestry, logging, heavy machinery, heavy equipment, harvester,
+                   forestry equipment, excavator, timber, John Deere, forest machine,
+                   forestry mulcher, satisfying machines]
+    youtube_category_id: "2"              # 2 Autos&Vehicles, 15 Pets&Animals,
                                           # 24 Entertainment, 26 HowTo, 28 Sci&Tech
     enabled: true
     max_retry_days: 7                     # failed download -> retried daily up to this
