@@ -1,0 +1,49 @@
+# THE channel config. Loaded and validated by src/config.py.
+# One entry per channel. This repo hosts exactly one.
+
+channels:
+  - id: channel_1                         # unique; used in DB, logs, secret names
+    tiktok_username: "kimvirtanen"        # no @  -- source profile
+    youtube_channel_name: "FurryFollies"  # https://www.youtube.com/@FurryFollies-v2p
+    owner_email: "REPLACE_WITH_CHANNEL_GMAIL@gmail.com"
+    # ^ ALWAYS record: the Gmail that owns the YouTube channel AND the GCP project.
+    #   Not derivable later; needed to sign in on a phone.
+
+    google_credentials_file: "credentials/channel_1_client_secret.json"
+    oauth_token_file: "tokens/channel_1_token.json"
+
+    videos_per_day: 2
+    description_footer: ""
+    default_tags: [animals, cute, funny, pets, viral]
+    youtube_category_id: "15"             # 15 Pets&Animals, 22 People&Blogs, 23 Comedy,
+                                          # 24 Entertainment, 26 HowTo, 28 Sci&Tech
+    enabled: true
+    max_retry_days: 7                     # failed download -> retried daily up to this
+    shorts_max_seconds: 180              # <= this and vertical -> uploaded as a Short
+    upload_mode: popular_split            # slot1 = newest, slot2 = most-viewed
+    max_download_candidates: 20           # 15-20. Code default of 3 lost whole days.
+
+    use_ai_seo: true                      # Claude (Haiku) writes title/desc/tags;
+                                          # needs ANTHROPIC_API_KEY secret, else
+                                          # a template fallback is used
+    edit:                                 # ffmpeg pass before upload (video_editor.py)
+      enabled: true
+      blur_watermark: true               # blur the 2 TikTok watermark zones
+      blur_regions: []                   # extra boxes as [x%, y%, w%, h%]
+      zoom_crop_pct: 3.0                 # crop 3% off each edge, scale back
+      speed: 1.03                        # 1.0 to disable
+      saturation: 1.05
+      contrast: 1.03
+      hflip: false                      # mirror -- strongest de-dup, changes framing
+      fade_seconds: 0.25
+
+    # tiktok_username_slot2: "SECOND_ACCOUNT"   # add when backlog runs low (~1 month)
+
+    slot_publish_times_utc:               # these ARE the cron fire times (US group)
+      1: "22:00"                          # 6 PM ET
+      2: "00:00"                          # 8 PM ET
+
+    # Optional keys:
+    # min_upload_date: "2026-01-01"       # ignore older TikToks
+    # min_backlog_for_slot1: 3           # skip slot 1 unless N unposted videos exist
+    # fixed_title: "..."                  # else the TikTok caption becomes the title
