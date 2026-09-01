@@ -5,7 +5,7 @@ channels:
   - id: channel_1                         # unique; used in DB, logs, secret names
     tiktok_username: "kimvirtanen"        # no @  -- source profile
     youtube_channel_name: "FurryFollies"  # https://www.youtube.com/@FurryFollies-v2p
-    owner_email: "REPLACE_WITH_CHANNEL_GMAIL@gmail.com"
+    owner_email: "dkdhaker1212@gmail.com"
     # ^ ALWAYS record: the Gmail that owns the YouTube channel AND the GCP project.
     #   Not derivable later; needed to sign in on a phone.
 
