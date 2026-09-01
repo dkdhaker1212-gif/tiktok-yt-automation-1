@@ -33,20 +33,26 @@ PROFILE_BATCH = 150
 def _impersonate_target() -> Optional[str]:
     """Rule 7: resolve the target from what yt-dlp actually registered.
     Never hard-code "chrome" -- curl_cffi 0.15+ silently registers nothing.
+    Returns an ImpersonateTarget (or None). yt-dlp's TikTok extractor forces
+    impersonate=True, so this MUST resolve or listing throws a bare AssertionError.
     """
     try:
-        from yt_dlp.networking.impersonate import ImpersonateTarget  # noqa: F401
-        from yt_dlp.networking import Request  # noqa: F401
-        ydl = yt_dlp.YoutubeDL({"quiet": True})
-        targets = list(ydl._get_available_impersonate_targets())  # type: ignore[attr-defined]
-        if not targets:
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+        ydl = yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True})
+        rd = ydl._request_director
+        available = []
+        for rh in rd.handlers.values():
+            for tgt in getattr(rh, "_SUPPORTED_IMPERSONATE_TARGET_MAP", {}) or {}:
+                available.append(tgt)
+        if not available:
+            print("[impersonate] no targets registered -- curl_cffi missing or too new")
             return None
-        # prefer a chrome target, else take the first available
-        for t, _rh in targets:
+        for t in available:
             if "chrome" in str(t).lower():
-                return str(t)
-        return str(targets[0][0])
-    except Exception:
+                return t
+        return available[0]
+    except Exception as exc:  # noqa: BLE001
+        print(f"[impersonate] resolution failed: {exc!r}")
         return None
 
 
@@ -55,17 +61,18 @@ def _cookiefile() -> Optional[str]:
     return p if p and os.path.isfile(p) else None
 
 
+_IMPERSONATE = _impersonate_target()
+
+
 def _base_opts() -> dict:
     opts: dict = {
         "quiet": True,
         "no_warnings": True,
         "ignoreerrors": True,
         "http_headers": _HTTP_HEADERS,
-        "extractor_args": {"tiktokuser": {"api_hostname": ["api22-normal-c-useast2a.tiktokv.com"]}},
     }
-    tgt = _impersonate_target()
-    if tgt:
-        opts["impersonate"] = tgt
+    if _IMPERSONATE is not None:
+        opts["impersonate"] = _IMPERSONATE
     ck = _cookiefile()
     if ck:
         opts["cookiefile"] = ck
@@ -88,6 +95,8 @@ def list_profile(username: str, limit: int = PROFILE_BATCH) -> list[dict]:
         "extract_flat": True,
         "playlistend": limit,
     })
+    import traceback
+    print(f"[list_profile] impersonate={_IMPERSONATE!r} cookies={bool(_cookiefile())}")
     last_err = ""
     for attempt, pause in enumerate(([2, 4, 8]), start=1):
         try:
@@ -98,8 +107,9 @@ def list_profile(username: str, limit: int = PROFILE_BATCH) -> list[dict]:
                 return [_normalise_entry(e) for e in entries]
             last_err = "empty listing (likely a rejected request)"
         except Exception as exc:  # noqa: BLE001
-            last_err = f"{type(exc).__name__}: {exc}"
-        print(f"[list_profile] attempt {attempt} failed: {last_err}; sleeping {pause}s")
+            last_err = (f"{type(exc).__name__}: {exc}\n" +
+                        traceback.format_exc())[-1200:]
+        print(f"[list_profile] attempt {attempt} failed: {last_err}\nsleeping {pause}s")
         time.sleep(pause)
     raise RuntimeError(f"could not list @{username} after 3 attempts: {last_err}")
 
