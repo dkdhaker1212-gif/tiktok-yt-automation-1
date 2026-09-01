@@ -1,30 +1,49 @@
-"""ffmpeg edit pass: blur baked-in overlays + light de-dup transform.
+"""ffmpeg edit pass: audio loudness + quality polish + light de-dup transform.
 
-Runs AFTER download, BEFORE upload. Everything is opt-in via channels.yaml
-(`edit:` block). If ffmpeg errors, the pipeline falls back to the original file
-so a bad filter can never drop a slot.
+Runs AFTER download, BEFORE upload. Opt-in via channels.yaml (`edit:` block).
+If ffmpeg errors, the pipeline falls back to the original file so a bad filter
+can never drop a slot.
+
+Watermark blur is OFF by default: we download TikTok's `play` stream which is
+already watermark-free, so blur boxes only vandalise clean footage. Set explicit
+`blur_regions: [[x%,y%,w%,h%], ...]` only for a source that bakes in a logo.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 from dataclasses import dataclass, field
 from typing import Optional
 
+FFMPEG = os.environ.get("FFMPEG_BIN", "ffmpeg")
+FFPROBE = os.environ.get("FFPROBE_BIN", "ffprobe")
+
 
 @dataclass
 class EditOptions:
     enabled: bool = True
-    blur_watermark: bool = True          # blur the two TikTok watermark zones
-    blur_regions: list = field(default_factory=list)  # extra [x%,y%,w%,h%] boxes
-    zoom_crop_pct: float = 3.0           # crop N% off each edge, scale back (subtle zoom)
+
+    # de-dup transform (subtle -- changes the fingerprint, not the look)
+    zoom_crop_pct: float = 2.0
     speed: float = 1.03                 # 1.0 = off; retimes video + audio
-    saturation: float = 1.05
-    contrast: float = 1.03
-    hflip: bool = False                 # mirror -- strong de-dup, changes framing
+    hflip: bool = False                 # mirror -- strongest de-dup, changes framing
     fade_seconds: float = 0.25
+
+    # quality polish
+    sharpen: bool = True
+    denoise: bool = False
+    saturation: float = 1.06
+    contrast: float = 1.04
+
+    # audio
+    loudnorm: bool = True               # -> ~-14 LUFS, the social standard (louder)
+    volume_gain_db: float = 0.0         # extra gain applied before loudnorm
+
+    # watermark cover (only when a source bakes in a logo)
+    blur_regions: list = field(default_factory=list)   # [[x%,y%,w%,h%], ...]
 
     @classmethod
     def from_cfg(cls, cfg: Optional[dict]) -> "EditOptions":
@@ -34,52 +53,56 @@ class EditOptions:
 
 
 def _probe(path: str) -> dict:
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0",
-         "-show_entries", "stream=width,height,duration:format=duration",
-         "-of", "json", path],
-        capture_output=True, text=True, timeout=60,
-    )
-    data = json.loads(out.stdout or "{}")
-    st = (data.get("streams") or [{}])[0]
-    dur = st.get("duration") or data.get("format", {}).get("duration") or 0
-    return {"w": int(st.get("width") or 0), "h": int(st.get("height") or 0),
-            "duration": float(dur or 0)}
+    # try ffprobe first
+    try:
+        out = subprocess.run(
+            [FFPROBE, "-v", "error", "-select_streams", "v:0", "-show_entries",
+             "stream=width,height,duration:format=duration", "-of", "json", path],
+            capture_output=True, text=True, timeout=60,
+        )
+        data = json.loads(out.stdout or "{}")
+        st = (data.get("streams") or [{}])[0]
+        dur = st.get("duration") or data.get("format", {}).get("duration") or 0
+        if st.get("width"):
+            return {"w": int(st["width"]), "h": int(st["height"]),
+                    "duration": float(dur or 0)}
+    except Exception:  # noqa: BLE001  -- fall through to ffmpeg -i parsing
+        pass
+    try:
+        r = subprocess.run([FFMPEG, "-i", path], capture_output=True, text=True,
+                           timeout=60)
+        err = r.stderr
+        m = re.search(r"Video:.*?(\d{2,5})x(\d{2,5})", err)
+        dm = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", err)
+        w, h = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+        dur = (int(dm.group(1)) * 3600 + int(dm.group(2)) * 60
+               + float(dm.group(3))) if dm else 0.0
+        return {"w": w, "h": h, "duration": dur}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[video_editor] probe failed: {exc}")
+        return {"w": 0, "h": 0, "duration": 0.0}
 
 
-# TikTok watermark alternates between two zones. Values are fractions of W/H.
-_TT_ZONES = [
-    (0.030, 0.780, 0.360, 0.090),   # lower-left
-    (0.610, 0.070, 0.360, 0.090),   # upper-right
-]
-
-
-def _blur_chain(w: int, h: int, opts: EditOptions) -> list[str]:
-    zones: list[tuple[float, float, float, float]] = []
-    if opts.blur_watermark:
-        zones += _TT_ZONES
-    for r in opts.blur_regions or []:
-        if len(r) == 4:
-            zones.append((r[0] / 100, r[1] / 100, r[2] / 100, r[3] / 100))
-
+def _blur_chain(w: int, h: int, regions: list) -> tuple[list[str], str]:
     steps: list[str] = []
     src = "0:v"
-    for i, (fx, fy, fw, fh) in enumerate(zones):
-        x, y = int(fx * w), int(fy * h)
-        bw, bh = int(fw * w), int(fh * h)
+    for i, r in enumerate(regions or []):
+        if len(r) != 4:
+            continue
+        x, y = int(r[0] / 100 * w), int(r[1] / 100 * h)
+        bw, bh = int(r[2] / 100 * w), int(r[3] / 100 * h)
         x = max(0, min(x, w - 8)); y = max(0, min(y, h - 8))
         bw = max(8, min(bw, w - x)); bh = max(8, min(bh, h - y))
         steps.append(
             f"[{src}]split=2[b{i}a][b{i}b];"
-            f"[b{i}b]crop={bw}:{bh}:{x}:{y},boxblur=18:2[b{i}c];"
+            f"[b{i}b]crop={bw}:{bh}:{x}:{y},boxblur=20:2[b{i}c];"
             f"[b{i}a][b{i}c]overlay={x}:{y}[wm{i}]"
         )
         src = f"wm{i}"
     return steps, src
 
 
-def process(in_path: str, out_path: str,
-            cfg: Optional[dict] = None) -> str:
+def process(in_path: str, out_path: str, cfg: Optional[dict] = None) -> str:
     """Return out_path on success, or in_path unchanged if editing is off/failed."""
     opts = EditOptions.from_cfg(cfg)
     if not opts.enabled:
@@ -91,14 +114,18 @@ def process(in_path: str, out_path: str,
         print("[video_editor] could not probe size; skipping edit")
         return in_path
 
-    chain, last = _blur_chain(w, h, opts)
+    chain, last = _blur_chain(w, h, opts.blur_regions)
     vf = list(chain)
 
-    # de-dup transform on the (possibly blurred) stream
-    tail = []
+    tail: list[str] = []
     if opts.zoom_crop_pct and opts.zoom_crop_pct > 0:
         keep = 1 - (opts.zoom_crop_pct / 100.0)
-        tail.append(f"crop=iw*{keep:.4f}:ih*{keep:.4f},scale={w}:{h}")
+        tail.append(f"crop=iw*{keep:.4f}:ih*{keep:.4f}")
+        tail.append(f"scale={w}:{h}:flags=lanczos")
+    if opts.denoise:
+        tail.append("hqdn3d=1.5:1.5:6:6")
+    if opts.sharpen:
+        tail.append("unsharp=5:5:0.8:5:5:0.0")
     eqs = []
     if opts.saturation and opts.saturation != 1.0:
         eqs.append(f"saturation={opts.saturation}")
@@ -117,36 +144,37 @@ def process(in_path: str, out_path: str,
     tail.append("format=yuv420p")
 
     tail_str = ",".join(tail)
-    if vf:
-        filter_complex = ";".join(vf) + f";[{last}]{tail_str}[v]"
-    else:
-        filter_complex = f"[0:v]{tail_str}[v]"
+    filter_complex = (";".join(vf) + f";[{last}]{tail_str}[v]") if vf \
+        else f"[0:v]{tail_str}[v]"
 
-    # audio: retime to match if speed != 1
-    a_filter = []
+    # -- audio: retime, optional gain, loudness normalise -------------------
+    a_parts = []
     if opts.speed and opts.speed != 1.0:
-        s = opts.speed
-        # atempo accepts 0.5-2.0; our speeds are ~1.03 so one stage is enough
-        a_filter = ["-filter:a", f"atempo={s}"]
-        amap = []
-    else:
-        amap = []
+        a_parts.append(f"atempo={opts.speed}")
+    if opts.volume_gain_db:
+        a_parts.append(f"volume={opts.volume_gain_db}dB")
+    if opts.loudnorm:
+        a_parts.append("loudnorm=I=-14:TP=-1.5:LRA=11")
+    a_filter = ["-filter:a", ",".join(a_parts)] if a_parts else []
 
     cmd = [
-        "ffmpeg", "-y", "-i", in_path,
+        FFMPEG, "-y", "-i", in_path,
         "-filter_complex", filter_complex,
         "-map", "[v]", "-map", "0:a?",
         *a_filter,
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-        "-c:a", "aac", "-b:a", "160k",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
         "-movflags", "+faststart",
         out_path,
     ]
     print("[video_editor] " + " ".join(shlex.quote(c) for c in cmd))
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        if r.returncode != 0 or not (os.path.isfile(out_path) and os.path.getsize(out_path) > 0):
-            print("[video_editor] ffmpeg failed; using original:\n" + r.stderr[-1500:])
+        if r.returncode != 0 or not (os.path.isfile(out_path)
+                                     and os.path.getsize(out_path) > 0):
+            print("[video_editor] ffmpeg failed; using original:\n"
+                  + r.stderr[-1500:])
             return in_path
     except Exception as exc:  # noqa: BLE001
         print(f"[video_editor] exception ({exc}); using original")

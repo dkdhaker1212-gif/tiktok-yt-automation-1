@@ -13,6 +13,10 @@ on:
         description: "true = list+pick only, never upload"
         required: false
         default: "false"
+      force:
+        description: "true = ignore the per-day guard (post a second one today)"
+        required: false
+        default: "false"
 
 # The per-day guard (runs table) makes re-triggers on the same UTC day a no-op,
 # so a delayed cron run + a manual dispatch cannot double-post.
@@ -83,6 +87,7 @@ jobs:
         run: |
           ARGS="--slot 1 --channel ${{ github.event.inputs.channel || 'channel_1' }}"
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
           python run.py $ARGS
 
       - name: Commit DB

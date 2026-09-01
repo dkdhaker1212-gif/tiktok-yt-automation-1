@@ -30,14 +30,21 @@ channels:
                                           # a template fallback is used
     edit:                                 # ffmpeg pass before upload (video_editor.py)
       enabled: true
-      blur_watermark: true               # blur the 2 TikTok watermark zones
-      blur_regions: []                   # extra boxes as [x%, y%, w%, h%]
-      zoom_crop_pct: 3.0                 # crop 3% off each edge, scale back
+      # de-dup transform (subtle)
+      zoom_crop_pct: 2.0                 # crop 2% off each edge, scale back (lanczos)
       speed: 1.03                        # 1.0 to disable
-      saturation: 1.05
-      contrast: 1.03
       hflip: false                      # mirror -- strongest de-dup, changes framing
       fade_seconds: 0.25
+      # quality polish
+      sharpen: true
+      denoise: false
+      saturation: 1.06
+      contrast: 1.04
+      # audio
+      loudnorm: true                    # normalise to ~-14 LUFS (makes it louder)
+      volume_gain_db: 0.0               # extra boost before loudnorm, e.g. 2.0
+      # watermark cover -- only if a source bakes in a visible logo:
+      blur_regions: []                   # e.g. [[2, 4, 22, 8]]  (x% y% w% h%)
 
     thumbnail:                            # hook thumbnail (thumbnail.py)
       enabled: true                      # ⚠ actually SETTING it needs the token

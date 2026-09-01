@@ -132,11 +132,14 @@ def _normalise_entry(e: dict) -> dict:
 # --------------------------------------------------------------------------
 # Download + audio verification
 # --------------------------------------------------------------------------
+_FFPROBE = os.environ.get("FFPROBE_BIN", "ffprobe")
+
+
 def _has_audio(path: str) -> bool:
     """Rule 2: ffprobe -select_streams a. yt-dlp metadata cannot be trusted."""
     try:
         out = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "a",
+            [_FFPROBE, "-v", "error", "-select_streams", "a",
              "-show_entries", "stream=codec_type", "-of", "json", path],
             capture_output=True, text=True, timeout=60,
         )

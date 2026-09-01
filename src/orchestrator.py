@@ -13,7 +13,8 @@ _EMOJI = {
 }
 
 
-def run_slot(slot: int, channel_id: str | None = None, dry_run: bool = False) -> int:
+def run_slot(slot: int, channel_id: str | None = None, dry_run: bool = False,
+             force: bool = False) -> int:
     channels = [c for c in load_channels() if c.enabled]
     if channel_id:
         channels = [c for c in channels if c.id == channel_id]
@@ -24,9 +25,9 @@ def run_slot(slot: int, channel_id: str | None = None, dry_run: bool = False) ->
     exit_code = 0
     lines: list[str] = []
     for ch in channels:
-        print(f"\n=== {ch.id} slot {slot} (dry_run={dry_run}) ===")
+        print(f"\n=== {ch.id} slot {slot} (dry_run={dry_run} force={force}) ===")
         try:
-            res = channel_runner.run(ch, slot, dry_run=dry_run)
+            res = channel_runner.run(ch, slot, dry_run=dry_run, force=force)
         except Exception as exc:  # noqa: BLE001 -- one channel must not kill the batch
             import traceback
             traceback.print_exc()

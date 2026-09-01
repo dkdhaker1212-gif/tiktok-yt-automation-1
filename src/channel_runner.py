@@ -97,14 +97,15 @@ def _description_for(channel: Channel, meta: dict, entry: dict) -> str:
     return (cap + ("\n\n" + foot if foot else "")).strip()
 
 
-def run(channel: Channel, slot: int, dry_run: bool = False) -> SlotResult:
+def run(channel: Channel, slot: int, dry_run: bool = False,
+        force: bool = False) -> SlotResult:
     from . import youtube_uploader as yu       # imported late: needs google libs
 
     db = DB(channel.db_path())
     cid = channel.id
     try:
-        # -- per-day guard -------------------------------------------------
-        if db.slot_already_ran_today(cid, slot):
+        # -- per-day guard (skipped with --force) ------------------------
+        if not force and db.slot_already_ran_today(cid, slot):
             res = SlotResult(cid, slot, "skipped", "per-day guard: already ran today")
             db.record_run(cid, slot, "skipped", res.detail)
             return res
