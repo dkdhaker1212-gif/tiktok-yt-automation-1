@@ -1,4 +1,4 @@
-name: "Channel 1 - Upload Slot 1 (22:00 UTC / US 6PM ET)"
+name: "Channel 1 - Daily Upload (13:30 UTC / 7 PM IST)"
 
 on:
   workflow_dispatch:

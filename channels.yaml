@@ -12,7 +12,7 @@ channels:
     google_credentials_file: "credentials/channel_1_client_secret.json"
     oauth_token_file: "tokens/channel_1_token.json"
 
-    videos_per_day: 2
+    videos_per_day: 1
     description_footer: ""
     default_tags: [forestry, logging, heavy machinery, heavy equipment, harvester,
                    forestry equipment, excavator, timber, John Deere, forest machine,
@@ -22,7 +22,7 @@ channels:
     enabled: true
     max_retry_days: 7                     # failed download -> retried daily up to this
     shorts_max_seconds: 180              # <= this and vertical -> uploaded as a Short
-    upload_mode: popular_split            # slot1 = newest, slot2 = most-viewed
+    upload_mode: short_only               # 1/day -> newest unposted video first
     max_download_candidates: 20           # 15-20. Code default of 3 lost whole days.
 
     use_ai_seo: true                      # Claude (Haiku) writes title/desc/tags;
@@ -41,9 +41,8 @@ channels:
 
     # tiktok_username_slot2: "SECOND_ACCOUNT"   # add when backlog runs low (~1 month)
 
-    slot_publish_times_utc:               # these ARE the cron fire times
-      1: "12:30"                          # 6:00 PM IST
-      2: "14:30"                          # 8:00 PM IST
+    slot_publish_times_utc:               # this IS the cron fire time
+      1: "13:30"                          # 7:00 PM IST
 
     # Optional keys:
     # min_upload_date: "2026-01-01"       # ignore older TikToks
