@@ -43,9 +43,10 @@ class Channel:
     max_download_candidates: int = 20
     slot_publish_times_utc: dict = field(default_factory=dict)
 
-    # editing + SEO
+    # editing + SEO + thumbnail
     use_ai_seo: bool = True
-    edit: dict = field(default_factory=dict)   # -> video_editor.EditOptions
+    edit: dict = field(default_factory=dict)        # -> video_editor.EditOptions
+    thumbnail: dict = field(default_factory=dict)   # -> thumbnail.build cfg
 
     # optional
     tiktok_username_slot2: Optional[str] = None

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from . import seo as seo_mod
+from . import thumbnail as thumb_mod
 from . import tiktok_downloader as td
 from . import video_editor
 from .config import Channel
@@ -182,6 +183,7 @@ def run(channel: Channel, slot: int, dry_run: bool = False) -> SlotResult:
                 edited_path = os.path.join(dest, f"{entry['id']}_edit.mp4")
                 upload_path = video_editor.process(path, edited_path, channel.edit)
 
+            thumb_path = None
             try:
                 yt_id = yu.upload(
                     file_path=upload_path, title=title, description=desc,
@@ -191,6 +193,17 @@ def run(channel: Channel, slot: int, dry_run: bool = False) -> SlotResult:
                     token_file=channel.abspath(channel.oauth_token_file),
                     dry_run=dry_run,
                 )
+                # build the thumbnail while the video file still exists
+                if not dry_run and yt_id and (channel.thumbnail or {}).get("enabled", True):
+                    try:
+                        thumb_path = thumb_mod.build(
+                            upload_path,
+                            os.path.join(dest, f"{entry['id']}_thumb.jpg"),
+                            title, channel.thumbnail,
+                            duration=(meta.get("duration") or entry.get("duration")),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[thumbnail] build error: {exc}")
             except yu.ChannelSuspended as exc:
                 res = SlotResult(cid, slot, "failed",
                                  f"CHANNEL SUSPENDED: {exc}", title=title)
@@ -224,6 +237,16 @@ def run(channel: Channel, slot: int, dry_run: bool = False) -> SlotResult:
                 cid, entry["id"], slot, title, entry["url"],
                 entry.get("view_count"), yt_id,
             )
+            if thumb_path:
+                yu.set_thumbnail(
+                    video_id=yt_id, thumb_path=thumb_path,
+                    client_secret_file=channel.abspath(channel.google_credentials_file),
+                    token_file=channel.abspath(channel.oauth_token_file),
+                )
+                try:
+                    os.remove(thumb_path)
+                except OSError:
+                    pass
             res = SlotResult(cid, slot, "success",
                              f"uploaded {entry['id']} -> {yt_id}",
                              youtube_id=yt_id, tiktok_id=entry["id"], title=title)

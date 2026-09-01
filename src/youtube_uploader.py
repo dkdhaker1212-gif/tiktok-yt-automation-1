@@ -123,3 +123,30 @@ def upload(
     vid = response["id"]
     print(f"[upload] done -> https://www.youtube.com/watch?v={vid}")
     return vid
+
+
+def set_thumbnail(*, video_id: str, thumb_path: str,
+                  client_secret_file: str, token_file: str) -> bool:
+    """Best-effort custom thumbnail. Needs scope youtube.force-ssl / youtube --
+    NOT youtube.upload. Returns False (and logs) if the scope is missing or the
+    channel lacks thumbnail privileges; never raises."""
+    if not (thumb_path and os.path.isfile(thumb_path)):
+        return False
+    try:
+        creds = _load_credentials(client_secret_file, token_file)
+        youtube = build("youtube", "v3", credentials=creds, cache_discovery=False)
+        media = MediaFileUpload(thumb_path, mimetype="image/jpeg")
+        youtube.thumbnails().set(videoId=video_id, media_body=media).execute()
+        print(f"[thumbnail] set on {video_id}")
+        return True
+    except HttpError as exc:
+        msg = str(exc)
+        if "insufficient" in msg.lower() or "scope" in msg.lower() or exc.resp.status == 403:
+            print("[thumbnail] skipped: token lacks youtube.force-ssl scope "
+                  "(re-mint with the broader scope to enable thumbnails)")
+        else:
+            print(f"[thumbnail] API error: {msg[:200]}")
+        return False
+    except Exception as exc:  # noqa: BLE001
+        print(f"[thumbnail] failed: {exc}")
+        return False

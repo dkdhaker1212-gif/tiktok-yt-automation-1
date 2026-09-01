@@ -39,6 +39,19 @@ channels:
       hflip: false                      # mirror -- strongest de-dup, changes framing
       fade_seconds: 0.25
 
+    thumbnail:                            # hook thumbnail (thumbnail.py)
+      enabled: true                      # ⚠ actually SETTING it needs the token
+                                          # re-minted with youtube.force-ssl scope;
+                                          # until then it builds but the API call
+                                          # no-ops with a log line
+      hook_source: title                 # "title" (from the video) or "template"
+      position: bottom                   # bottom | top
+      accent_rgb: [240, 164, 32]
+      hook_templates:
+        - "YOU WON'T BELIEVE THIS"
+        - "WAIT FOR IT"
+        - "HOW IS THIS REAL?"
+
     # tiktok_username_slot2: "SECOND_ACCOUNT"   # add when backlog runs low (~1 month)
 
     slot_publish_times_utc:               # this IS the cron fire time
