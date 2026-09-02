@@ -45,6 +45,10 @@ class EditOptions:
     # watermark cover (only when a source bakes in a logo)
     blur_regions: list = field(default_factory=list)   # [[x%,y%,w%,h%], ...]
 
+    # brand badge overlay -- covers a source creator's baked-in logo + brands ours
+    brand_overlay: dict = field(default_factory=dict)  # {enabled,image,corner,
+                                                       #  width_pct,margin_pct,opacity}
+
     @classmethod
     def from_cfg(cls, cfg: Optional[dict]) -> "EditOptions":
         cfg = cfg or {}
@@ -147,6 +151,33 @@ def process(in_path: str, out_path: str, cfg: Optional[dict] = None) -> str:
     filter_complex = (";".join(vf) + f";[{last}]{tail_str}[v]") if vf \
         else f"[0:v]{tail_str}[v]"
 
+    # -- brand badge overlay ---------------------------------------------
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    bo = opts.brand_overlay or {}
+    badge = bo.get("image") or os.path.join("assets", "brand_badge.png")
+    badge_abs = badge if os.path.isabs(badge) else os.path.join(_root, badge)
+    extra_inputs: list[str] = []
+    vmap = "[v]"
+    if bo.get("enabled") and os.path.isfile(badge_abs):
+        wpct = float(bo.get("width_pct", 26)) / 100.0
+        mpct = float(bo.get("margin_pct", 2)) / 100.0
+        opac = float(bo.get("opacity", 1.0))
+        corner = (bo.get("corner") or "tl").lower()
+        bw = max(16, int(w * wpct))
+        mx = int(w * mpct)
+        pos = {
+            "tl": f"{mx}:{mx}",
+            "tr": f"W-w-{mx}:{mx}",
+            "bl": f"{mx}:H-h-{mx}",
+            "br": f"W-w-{mx}:H-h-{mx}",
+        }.get(corner, f"{mx}:{mx}")
+        extra_inputs = ["-i", badge_abs]
+        filter_complex += (
+            f";[1:v]format=rgba,colorchannelmixer=aa={opac:.3f},"
+            f"scale={bw}:-1[bd];[v][bd]overlay={pos}[vo]"
+        )
+        vmap = "[vo]"
+
     # -- audio: retime, optional gain, loudness normalise -------------------
     a_parts = []
     if opts.speed and opts.speed != 1.0:
@@ -158,9 +189,9 @@ def process(in_path: str, out_path: str, cfg: Optional[dict] = None) -> str:
     a_filter = ["-filter:a", ",".join(a_parts)] if a_parts else []
 
     cmd = [
-        FFMPEG, "-y", "-i", in_path,
+        FFMPEG, "-y", "-i", in_path, *extra_inputs,
         "-filter_complex", filter_complex,
-        "-map", "[v]", "-map", "0:a?",
+        "-map", vmap, "-map", "0:a?",
         *a_filter,
         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-pix_fmt", "yuv420p",

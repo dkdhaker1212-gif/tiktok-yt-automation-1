@@ -45,6 +45,13 @@ channels:
       volume_gain_db: 0.0               # extra boost before loudnorm, e.g. 2.0
       # watermark cover -- only if a source bakes in a visible logo:
       blur_regions: []                   # e.g. [[2, 4, 22, 8]]  (x% y% w% h%)
+      brand_overlay:                     # cover the source creator's logo with ours
+        enabled: true
+        image: "assets/brand_badge.png"
+        corner: tl                       # @kimvirtanen's logo sits top-left
+        width_pct: 27                    # badge width as % of frame width
+        margin_pct: 2
+        opacity: 1.0                     # fully opaque -> hides whatever is under it
 
     thumbnail:                            # hook thumbnail (thumbnail.py)
       enabled: true                      # ⚠ actually SETTING it needs the token
