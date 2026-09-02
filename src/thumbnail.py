@@ -16,12 +16,13 @@ import textwrap
 from typing import Optional
 
 THUMB_W, THUMB_H = 1280, 720
+FFMPEG = os.environ.get("FFMPEG_BIN", "ffmpeg")
 
 
 def _grab_frame(video_path: str, out_png: str, at_seconds: float) -> bool:
     try:
         r = subprocess.run(
-            ["ffmpeg", "-y", "-ss", f"{at_seconds:.2f}", "-i", video_path,
+            [FFMPEG, "-y", "-ss", f"{at_seconds:.2f}", "-i", video_path,
              "-frames:v", "1", "-q:v", "2", out_png],
             capture_output=True, text=True, timeout=120,
         )
@@ -29,6 +30,22 @@ def _grab_frame(video_path: str, out_png: str, at_seconds: float) -> bool:
     except Exception as exc:  # noqa: BLE001
         print(f"[thumbnail] frame grab failed: {exc}")
         return False
+
+
+_BOLD_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",       # Ubuntu (CI)
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",                              # macOS
+    r"C:\Windows\Fonts\ariblk.ttf",                               # Windows
+    r"C:\Windows\Fonts\arialbd.ttf",
+]
+
+
+def _bold_font() -> Optional[str]:
+    for p in _BOLD_CANDIDATES:
+        if os.path.isfile(p):
+            return p
+    return None   # PIL falls back to its built-in bitmap font
 
 
 def _hook_from(cfg: dict, title: str) -> str:
@@ -85,15 +102,15 @@ def build(video_path: str, out_jpg: str, title: str,
 
         d = ImageDraw.Draw(canvas)
         hook = _hook_from(cfg, title)
-        fdir = r"C:\Windows\Fonts"
-        fp = cfg.get("font") or (
-            f"{fdir}\\ariblk.ttf" if os.path.isfile(f"{fdir}\\ariblk.ttf")
-            else f"{fdir}\\arialbd.ttf"
-        )
+        fp = cfg.get("font") or _bold_font()
+
+        def _font(sz):
+            return ImageFont.truetype(fp, sz) if fp else ImageFont.load_default(sz)
+
         # fit text width
         size = 96
         while size > 30:
-            fnt = ImageFont.truetype(fp, size)
+            fnt = _font(size)
             lines = textwrap.wrap(hook, width=18) or [hook]
             widest = max(d.textbbox((0, 0), ln, font=fnt)[2] for ln in lines)
             if widest <= THUMB_W - 120:
