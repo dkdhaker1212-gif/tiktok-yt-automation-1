@@ -19,7 +19,11 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 from src.config import get_channel
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# youtube.upload = insert videos; youtube.force-ssl = also set custom thumbnails.
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+]
 
 
 def main() -> int:
