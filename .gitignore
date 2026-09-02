@@ -12,6 +12,9 @@ downloads/*
 logs/*
 !logs/.gitkeep
 
+# generated
+dashboard.html
+
 # local env
 .env
 *.pyc
