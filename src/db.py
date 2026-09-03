@@ -192,3 +192,12 @@ class DB:
             "SELECT * FROM runs WHERE channel_id=? ORDER BY created_at DESC LIMIT ?",
             (channel_id, limit),
         ).fetchall()
+
+    def recent_titles(self, channel_id: str, limit: int = 60) -> list[str]:
+        """Titles already used on this channel -- so SEO never repeats one."""
+        rows = self._conn.execute(
+            "SELECT title FROM posted_videos WHERE channel_id=? AND title IS NOT NULL "
+            "AND title<>'' ORDER BY updated_at DESC LIMIT ?",
+            (channel_id, limit),
+        ).fetchall()
+        return [r["title"] for r in rows]

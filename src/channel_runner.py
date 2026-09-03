@@ -165,12 +165,15 @@ def run(channel: Channel, slot: int, dry_run: bool = False,
             tiktok_tags = meta.get("tags", []) or []
 
             # -- SEO: AI title / description / tags -----------------------
+            recent_titles = db.recent_titles(cid)
             if channel.use_ai_seo and not dry_run:
                 s = seo_mod.generate(caption, tiktok_tags,
-                                     channel.default_tags, short)
+                                     channel.default_tags, short,
+                                     media_path=path, recent_titles=recent_titles)
             else:
                 s = seo_mod._fallback(caption, tiktok_tags,
-                                      channel.default_tags, short)
+                                      channel.default_tags, short,
+                                      recent_titles=recent_titles)
             title = channel.fixed_title or s.title
             desc = (s.description + (
                 "\n\n" + channel.description_footer
@@ -197,10 +200,13 @@ def run(channel: Channel, slot: int, dry_run: bool = False,
                 # build the thumbnail while the video file still exists
                 if not dry_run and yt_id and (channel.thumbnail or {}).get("enabled", True):
                     try:
+                        _tcfg = dict(channel.thumbnail or {})
+                        if getattr(s, "thumb_hook", ""):
+                            _tcfg["hook_text"] = s.thumb_hook
                         thumb_path = thumb_mod.build(
                             upload_path,
                             os.path.join(dest, f"{entry['id']}_thumb.jpg"),
-                            title, channel.thumbnail,
+                            title, _tcfg,
                             duration=(meta.get("duration") or entry.get("duration")),
                         )
                     except Exception as exc:  # noqa: BLE001

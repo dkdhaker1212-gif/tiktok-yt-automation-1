@@ -49,6 +49,9 @@ def _bold_font() -> Optional[str]:
 
 
 def _hook_from(cfg: dict, title: str) -> str:
+    explicit = (cfg.get("hook_text") or "").strip()
+    if explicit:
+        return explicit.split("#")[0].strip(" -|").upper()[:38]
     templates = cfg.get("hook_templates") or [
         "YOU WON'T BELIEVE THIS",
         "WAIT FOR IT",
