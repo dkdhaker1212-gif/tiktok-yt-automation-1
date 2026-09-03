@@ -195,18 +195,25 @@ def _gemini(media_path, caption, base_tags, recent_titles):
         }).encode()
         url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
                f"{_GEMINI_MODEL}:generateContent?key={key}")
+        import socket
         resp = None
-        for attempt, wait in enumerate(([0, 8, 20, 45]), start=1):
+        waits = [0, 10, 25, 50, 90]
+        for attempt, wait in enumerate(waits, start=1):
             if wait:
                 time.sleep(wait)
             req = urllib.request.Request(
                 url, data=body, headers={"Content-Type": "application/json"})
             try:
-                resp = json.loads(urllib.request.urlopen(req, timeout=180).read())
+                resp = json.loads(urllib.request.urlopen(req, timeout=300).read())
                 break
             except urllib.error.HTTPError as he:
-                if he.code in (429, 500, 502, 503) and attempt < 4:
+                if he.code in (429, 500, 502, 503) and attempt < len(waits):
                     print(f"[seo] Gemini {he.code}, retry {attempt}")
+                    continue
+                raise
+            except (socket.timeout, urllib.error.URLError, TimeoutError) as te:
+                if attempt < len(waits):
+                    print(f"[seo] Gemini timeout ({te}), retry {attempt}")
                     continue
                 raise
         if resp is None:
