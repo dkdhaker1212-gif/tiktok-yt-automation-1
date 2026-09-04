@@ -22,7 +22,7 @@ channels:
     enabled: true
     max_retry_days: 7                     # failed download -> retried daily up to this
     shorts_max_seconds: 180              # <= this and vertical -> uploaded as a Short
-    upload_mode: short_only               # 1/day -> newest unposted video first
+    upload_mode: popular_only             # always pick the most-viewed unposted video
     max_download_candidates: 20           # 15-20. Code default of 3 lost whole days.
 
     use_ai_seo: true                      # Claude (Haiku) writes title/desc/tags;
