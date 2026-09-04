@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Optional
 
@@ -24,6 +25,27 @@ SCOPES = [
 
 class ChannelSuspended(RuntimeError):
     """403 authenticatedUserAccountSuspended -- stop, do not retry (Automation.md S13)."""
+
+
+def _sanitize_tags(tags, char_budget: int = 450) -> list[str]:
+    """YouTube rejects the whole upload if the tag list is malformed or the
+    combined length exceeds ~500 chars (a tag with spaces is quoted -> +2).
+    Drop angle brackets, dedupe, and stop once we near the budget."""
+    seen: set[str] = set()
+    out: list[str] = []
+    total = 0
+    for raw in tags or []:
+        t = re.sub(r"[<>]", "", str(raw)).strip().strip('"')
+        key = t.lower()
+        if not t or key in seen or len(t) > 80:
+            continue
+        cost = len(t) + (2 if " " in t else 0) + 1  # quotes + comma separator
+        if total + cost > char_budget or len(out) >= 15:
+            break
+        seen.add(key)
+        out.append(t)
+        total += cost
+    return out
 
 
 def _load_credentials(client_secret_file: str, token_file: str) -> Credentials:
@@ -79,13 +101,13 @@ def upload(
 ) -> Optional[str]:
     """Upload one video as public. Returns the YouTube video id (None on dry run)."""
     title = (title or "Untitled").strip()[:100]
-    tags = list(dict.fromkeys([*(tags or []), *(["Shorts"] if is_short else [])]))
+    tags = _sanitize_tags([*(tags or []), *(["Shorts"] if is_short else [])])
     body = {
         "snippet": {
             "title": title,
             "description": description.strip()[:4900],
             "categoryId": str(category_id),
-            "tags": tags[:60],
+            "tags": tags,
         },
         "status": {
             "privacyStatus": "public",
@@ -104,24 +126,36 @@ def upload(
     creds = _load_credentials(client_secret_file, token_file)
     youtube = build("youtube", "v3", credentials=creds, cache_discovery=False)
 
-    media = MediaFileUpload(file_path, chunksize=-1, resumable=True, mimetype="video/*")
-    request = youtube.videos().insert(
-        part="snippet,status", body=body, media_body=media
-    )
+    def _do_upload(payload):
+        media = MediaFileUpload(file_path, chunksize=-1, resumable=True,
+                                mimetype="video/*")
+        request = youtube.videos().insert(
+            part="snippet,status", body=payload, media_body=media)
+        response = None
+        tries = 0
+        while response is None:
+            try:
+                _status, response = request.next_chunk()
+            except HttpError as exc:
+                msg = str(exc)
+                if "authenticatedUserAccountSuspended" in msg:
+                    raise ChannelSuspended(msg) from exc
+                tries += 1
+                if exc.resp.status in (500, 502, 503, 504) and tries <= 5:
+                    time.sleep(2 ** tries)
+                    continue
+                raise
+        return response
 
-    response = None
-    tries = 0
-    while response is None:
-        try:
-            _status, response = request.next_chunk()
-        except HttpError as exc:
-            msg = str(exc)
-            if "authenticatedUserAccountSuspended" in msg:
-                raise ChannelSuspended(msg) from exc
-            tries += 1
-            if exc.resp.status in (500, 502, 503, 504) and tries <= 5:
-                time.sleep(2 ** tries)
-                continue
+    try:
+        response = _do_upload(body)
+    except HttpError as exc:
+        # bad tags/keywords -> never lose the video over metadata; post tag-free
+        if "invalidTags" in str(exc) or "invalid video keywords" in str(exc).lower():
+            print("[upload] YouTube rejected the tags; retrying with no tags")
+            body["snippet"]["tags"] = []
+            response = _do_upload(body)
+        else:
             raise
     vid = response["id"]
     print(f"[upload] done -> https://www.youtube.com/watch?v={vid}")
