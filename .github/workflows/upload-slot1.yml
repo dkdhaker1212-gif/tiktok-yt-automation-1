@@ -47,15 +47,33 @@ jobs:
             echo "ffmpeg already present"; ffmpeg -version | head -1; exit 0
           fi
           echo "installing ffmpeg via apt"
-          timeout 180 sudo apt-get update -y || true
-          timeout 300 sudo apt-get install -y ffmpeg || true
-          if command -v ffmpeg >/dev/null 2>&1; then exit 0; fi
-          echo "apt failed; pulling a static build"
-          timeout 300 curl -fL --retry 3 -o /tmp/ff.tar.xz \
-            https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-          mkdir -p /tmp/ff && tar -xJf /tmp/ff.tar.xz -C /tmp/ff --strip-components=1
-          sudo install /tmp/ff/ffmpeg /tmp/ff/ffprobe /usr/local/bin/
-          ffmpeg -version | head -1
+          timeout 120 sudo apt-get update -y || true
+          timeout 180 sudo apt-get install -y ffmpeg || true
+          if command -v ffmpeg >/dev/null 2>&1; then ffmpeg -version | head -1; exit 0; fi
+
+          echo "apt failed; trying static build mirror 1 (johnvansickle)"
+          if timeout 90 curl -fL --retry 2 --retry-max-time 80 --connect-timeout 15 \
+              -o /tmp/ff.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz; then
+            mkdir -p /tmp/ff && tar -xJf /tmp/ff.tar.xz -C /tmp/ff --strip-components=1 || true
+            sudo install /tmp/ff/ffmpeg /tmp/ff/ffprobe /usr/local/bin/ 2>/dev/null || true
+          fi
+          if command -v ffmpeg >/dev/null 2>&1; then ffmpeg -version | head -1; exit 0; fi
+
+          echo "mirror 1 unreachable; trying static build mirror 2 (BtbN GitHub release)"
+          URL=$(timeout 20 curl -fsSL --connect-timeout 15 \
+            https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest \
+            | grep -oE '"browser_download_url":[[:space:]]*"[^"]*linux64-gpl\.tar\.xz"' \
+            | head -1 | cut -d'"' -f4)
+          if [ -n "$URL" ] && timeout 90 curl -fL --retry 2 --retry-max-time 80 --connect-timeout 15 \
+              -o /tmp/ff2.tar.xz "$URL"; then
+            mkdir -p /tmp/ff2 && tar -xJf /tmp/ff2.tar.xz -C /tmp/ff2 || true
+            BIN=$(find /tmp/ff2 -type d -name bin | head -1)
+            [ -n "$BIN" ] && sudo install "$BIN/ffmpeg" "$BIN/ffprobe" /usr/local/bin/ 2>/dev/null || true
+          fi
+          if command -v ffmpeg >/dev/null 2>&1; then ffmpeg -version | head -1; exit 0; fi
+
+          echo "::error::ffmpeg install failed via apt + both static mirrors"
+          exit 1
 
       - name: Install Python deps
         run: |
