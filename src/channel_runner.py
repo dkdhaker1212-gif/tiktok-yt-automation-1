@@ -169,11 +169,13 @@ def run(channel: Channel, slot: int, dry_run: bool = False,
             if channel.use_ai_seo and not dry_run:
                 s = seo_mod.generate(caption, tiktok_tags,
                                      channel.default_tags, short,
-                                     media_path=path, recent_titles=recent_titles)
+                                     media_path=path, recent_titles=recent_titles,
+                                     language=channel.seo_language)
             else:
                 s = seo_mod._fallback(caption, tiktok_tags,
                                       channel.default_tags, short,
-                                      recent_titles=recent_titles)
+                                      recent_titles=recent_titles,
+                                      language=channel.seo_language)
             title = channel.fixed_title or s.title
             desc = (s.description + (
                 "\n\n" + channel.description_footer

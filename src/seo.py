@@ -73,13 +73,27 @@ _HOOK_POOL = [
     "How Is This Real", "The Last Part Though", "Watch Till The End",
     "This Caught Everyone Off Guard",
 ]
+_HOOK_POOL_ES = [
+    "Espera Hasta El Final", "Esto Dio Un Giro", "Nadie Se Esperaba Esto",
+    "Cada Vez Mejora Mas", "Tienes Que Ver Esto", "Esto No Es Normal",
+    "Como Es Esto Real", "Mira La Ultima Parte", "Miralo Hasta El Final",
+    "Esto Sorprendio A Todos",
+]
+_LANG_NAMES = {"en": "English", "es": "Spanish"}
+_LANG_HOOKS = {"en": _HOOK_POOL, "es": _HOOK_POOL_ES}
+_LANG_HASHTAGS = {
+    "en": ["#shorts", "#viral", "#trending", "#fyp", "#usa", "#foryou",
+           "#reels", "#viralvideo"],
+    "es": ["#shorts", "#viral", "#tendencia", "#paraty", "#satisfactorio",
+           "#fyp", "#reels", "#viralvideo"],
+}
 
 
-def _mutate(title: str, recent: list[str]) -> str:
+def _mutate(title: str, recent: list[str], language: str = "en") -> str:
     """Guaranteed-unique-ish fallback: prepend an unused hook."""
     base = title.split("#")[0].strip(" -|")
     used = {_norm(r) for r in (recent or [])}
-    for h in _HOOK_POOL:
+    for h in _LANG_HOOKS.get(language, _HOOK_POOL):
         cand = f"{h}: {base}"
         if _norm(cand) not in used:
             return cand[:98]
@@ -92,22 +106,29 @@ You are given a few frames and/or the audio of ONE short vertical video.
 
 First silently work out what literally happens in the clip (subject, action,
 the single most surprising or satisfying beat). Then write metadata that makes a
-US viewer stop scrolling. Be bold and curiosity-driven ("clickbait" energy) but
+viewer stop scrolling. Be bold and curiosity-driven ("clickbait" energy) but
 NEVER promise something the clip does not deliver.
+
+Write the title, description, tags and hashtags in {language_name} - natural,
+native-sounding phrasing a real {language_name} speaker would write, NOT a
+literal translation. Universal tags like #shorts/#viral may stay in English if
+that is what real {language_name}-speaking creators use.
 
 Return ONLY minified JSON with keys:
 "title","description","tags","hashtags","thumb_hook"
-- title: 40-90 chars. A strong curiosity/hook opening, plain conversational
-  English, no ALL-CAPS words, no lies. End with " #Shorts".
+- title: 40-90 chars, in {language_name}. A strong curiosity/hook opening,
+  plain conversational tone, no ALL-CAPS words, no lies. End with " #Shorts".
   It MUST be clearly different in wording AND structure from every title in
   ALREADY_USED below - different hook, different phrasing, do not just swap a
   word. Vary how you open (question / bold claim / "POV" / number / "nobody...").
-- description: line 1 = a punchy hook. blank line. 1-2 short lines of context.
-  blank line. then 6-8 US-style hashtags on one line. No links. <= 500 chars.
-- tags: 18-25 lowercase search phrases, most specific first, no "#".
-- hashtags: 8 strings starting with "#", US style, lowercase.
-- thumb_hook: 2-4 words, punchy, no emojis, no hashtags - goes big on the
-  thumbnail. Different from the title's opening words.
+- description: in {language_name}. line 1 = a punchy hook. blank line. 1-2
+  short lines of context. blank line. then 6-8 hashtags on one line. No links.
+  <= 500 chars.
+- tags: 18-25 lowercase search phrases in {language_name}, most specific
+  first, no "#".
+- hashtags: 8 strings starting with "#", lowercase.
+- thumb_hook: 2-4 words in {language_name}, punchy, no emojis, no hashtags -
+  goes big on the thumbnail. Different from the title's opening words.
 
 SOURCE_CAPTION: {caption}
 ALREADY_USED (do NOT repeat or lightly reword any of these):
@@ -157,7 +178,7 @@ def _extract_frames(media_path, prefix, n=3):
     return out
 
 
-def _gemini(media_path, caption, base_tags, recent_titles):
+def _gemini(media_path, caption, base_tags, recent_titles, language="en"):
     import base64 as _b64
     import time
     import urllib.error
@@ -172,9 +193,11 @@ def _gemini(media_path, caption, base_tags, recent_titles):
     parts = []
     try:
         recent = "\n".join(f"- {t[:90]}" for t in (recent_titles or [])[:30]) or "(none)"
+        lang_name = _LANG_NAMES.get(language, "English")
         parts.append({"text": _GEMINI_PROMPT
                       .replace("{caption}", (caption or "(none)")[:400])
-                      .replace("{recent}", recent)})
+                      .replace("{recent}", recent)
+                      .replace("{language_name}", lang_name)})
 
         frames = _extract_frames(media_path, media_path + ".seo", n=3)
         for fp in frames:
@@ -251,13 +274,17 @@ def _gemini(media_path, caption, base_tags, recent_titles):
 _ANTHROPIC_PROMPT = """You are a YouTube Shorts SEO expert. Given a TikTok video's
 caption and its original hashtags, produce click-driving YouTube metadata.
 
+Write the title, description and tags in {language_name} - natural,
+native-sounding phrasing, NOT a literal translation.
+
 Return ONLY minified JSON with keys: "title","description","tags","thumb_hook".
-- title: <= 90 chars, punchy and curiosity-driven, natural English, no lies,
+- title: <= 90 chars, in {language_name}, punchy and curiosity-driven, no lies,
   end with " #Shorts" if is_short is true. It MUST be clearly different in
   wording and structure from every entry in ALREADY_USED.
-- description: hook line, blank line, 1-2 context lines, blank line, 6-8 hashtags.
-- tags: 15-20 lowercase phrases, most specific first, no "#".
-- thumb_hook: 2-4 punchy words for the thumbnail, no emojis.
+- description: in {language_name}. hook line, blank line, 1-2 context lines,
+  blank line, 6-8 hashtags.
+- tags: 15-20 lowercase phrases in {language_name}, most specific first, no "#".
+- thumb_hook: 2-4 punchy words in {language_name} for the thumbnail, no emojis.
 Caption: {caption}
 Original hashtags: {hashtags}
 is_short: {is_short}
@@ -265,11 +292,9 @@ ALREADY_USED:
 {recent}
 """
 
-_HASHTAGS = ["#shorts", "#viral", "#trending", "#fyp", "#usa", "#foryou",
-             "#reels", "#viralvideo"]
 
-
-def _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles=None):
+def _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles=None,
+              language="en"):
     cap = (caption or "").strip().replace("\n", " ")
     cap_clean = re.sub(r"#\S+", "", cap).strip(" .,-|")
     kws = _keywords(cap) or base_tags[:5] or ["viral", "trending"]
@@ -282,7 +307,7 @@ def _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles=None):
     used = {_norm(r) for r in (recent_titles or [])}
     title = base
     if _norm(title) in used:
-        for h in _HOOK_POOL:
+        for h in _LANG_HOOKS.get(language, _HOOK_POOL):
             cand = f"{h}: {base}"
             if _norm(cand) not in used:
                 title = cand
@@ -293,7 +318,7 @@ def _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles=None):
     tags = list(dict.fromkeys(
         [*base_tags, *[t.lower() for t in tiktok_tags], *kws,
          "shorts", "viral", "trending", "fyp"]))[:22]
-    hs = (["#shorts"] if is_short else []) + _HASHTAGS
+    hs = (["#shorts"] if is_short else []) + _LANG_HASHTAGS.get(language, _LANG_HASHTAGS["en"])
     desc = "\n".join(filter(None, [
         (cap_clean[:150] if cap_clean else base),
         "", " ".join(dict.fromkeys(hs))[:120],
@@ -302,28 +327,28 @@ def _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles=None):
     return Seo(title[:100], desc[:4900], tags, thumb_hook=hook)
 
 
-def _finish_title(title, is_short, recent):
+def _finish_title(title, is_short, recent, language="en"):
     if _is_dupe(title, recent):
-        title = _mutate(title, recent)
+        title = _mutate(title, recent, language)
     if is_short and "#shorts" not in title.lower() and len(title) <= 91:
         title = (title + " #Shorts").strip()
     return title[:100]
 
 
 def generate(caption, tiktok_tags, base_tags, is_short, media_path=None,
-             recent_titles=None):
+             recent_titles=None, language="en"):
     recent_titles = recent_titles or []
 
     if os.environ.get("GEMINI_API_KEY", "").strip() and media_path:
-        g = _gemini(media_path, caption, base_tags, recent_titles)
+        g = _gemini(media_path, caption, base_tags, recent_titles, language)
         if g and _is_dupe(g.title, recent_titles):        # one firm retry
             print("[seo] Gemini title collided; retrying once")
             g2 = _gemini(media_path, caption,
-                         base_tags, recent_titles + [g.title])
+                         base_tags, recent_titles + [g.title], language)
             if g2:
                 g = g2
         if g:
-            g.title = _finish_title(g.title, is_short, recent_titles)
+            g.title = _finish_title(g.title, is_short, recent_titles, language)
             return g
 
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
@@ -339,6 +364,7 @@ def generate(caption, tiktok_tags, base_tags, is_short, media_path=None,
                     is_short=str(bool(is_short)).lower(),
                     recent="\n".join(f"- {t[:90]}" for t in recent_titles[:30])
                     or "(none)",
+                    language_name=_LANG_NAMES.get(language, "English"),
                 )}],
             )
             raw = "".join(b.text for b in msg.content
@@ -353,10 +379,10 @@ def generate(caption, tiktok_tags, base_tags, is_short, media_path=None,
             hook = str(data.get("thumb_hook", "")).strip()[:40]
             if not title or not tags:
                 raise ValueError("empty title/tags")
-            title = _finish_title(title, is_short, recent_titles)
+            title = _finish_title(title, is_short, recent_titles, language)
             print(f"[seo] AI metadata OK ({_MODEL})")
             return Seo(title, desc, tags, thumb_hook=hook)
         except Exception as exc:  # noqa: BLE001
             print(f"[seo] Anthropic failed ({exc}); template fallback")
 
-    return _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles)
+    return _fallback(caption, tiktok_tags, base_tags, is_short, recent_titles, language)

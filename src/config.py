@@ -45,6 +45,7 @@ class Channel:
 
     # editing + SEO + thumbnail
     use_ai_seo: bool = True
+    seo_language: str = "en"                        # "en" | "es" -> Gemini/AI output language
     edit: dict = field(default_factory=dict)        # -> video_editor.EditOptions
     thumbnail: dict = field(default_factory=dict)   # -> thumbnail.build cfg
 
