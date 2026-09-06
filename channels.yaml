@@ -31,7 +31,7 @@ channels:
     edit:                                 # ffmpeg pass before upload (video_editor.py)
       enabled: true
       # de-dup transform (subtle)
-      zoom_crop_pct: 2.0                 # crop 2% off each edge, scale back (lanczos)
+      zoom_crop_pct: 3.0                 # crop 2% off each edge, scale back (lanczos)
       speed: 1.03                        # 1.0 to disable
       hflip: false                      # mirror -- strongest de-dup, changes framing
       fade_seconds: 0.25
@@ -45,6 +45,11 @@ channels:
       volume_gain_db: 0.0               # extra boost before loudnorm, e.g. 2.0
       # watermark cover -- only if a source bakes in a visible logo:
       blur_regions: []                   # e.g. [[2, 4, 22, 8]]  (x% y% w% h%)
+      hook_caption:                    # burned-in hook, first 3s (retention + transformation)
+        enabled: true
+        seconds: 3
+        position: top
+        size_pct: 5.6
       brand_overlay:                     # cover the source creator's logo with ours
         enabled: true
         image: "assets/brand_badge.png"
