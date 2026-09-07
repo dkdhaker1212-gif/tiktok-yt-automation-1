@@ -74,7 +74,7 @@ channels:
     # tiktok_username_slot2: "SECOND_ACCOUNT"   # add when backlog runs low (~1 month)
 
     slot_publish_times_utc:               # this IS the cron fire time
-      1: "23:00"                          # 7:00 PM US Eastern (US evening prime) = 4:30 AM IST
+      1: "14:30"                          # 8:00 PM IST
 
     # Optional keys:
     # min_upload_date: "2026-01-01"       # ignore older TikToks
