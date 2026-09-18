@@ -19,7 +19,7 @@ channels:
                    forestry mulcher, satisfying machines]
     youtube_category_id: "2"              # 2 Autos&Vehicles, 15 Pets&Animals,
                                           # 24 Entertainment, 26 HowTo, 28 Sci&Tech
-    enabled: true
+    enabled: false                        # PAUSED 2026-09-18: no traction, stop posting (see memory)
     max_retry_days: 7                     # failed download -> retried daily up to this
     shorts_max_seconds: 180              # <= this and vertical -> uploaded as a Short
     min_video_seconds: 12                 # skip clips shorter than 12s
