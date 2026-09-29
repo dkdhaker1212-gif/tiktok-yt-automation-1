@@ -4,6 +4,7 @@
 channels:
   - id: channel_1                         # unique; used in DB, logs, secret names
     tiktok_username: "kimvirtanen"        # no @  -- source profile (forestry machines)
+    tiktok_username_backup: "am.machinery"  # no @ -- emergency-only fallback, used automatically if the primary source runs dry or every candidate it offers fails to post. 6.5K followers, forage-harvester equipment dealer, real forestry-machine footage.
     youtube_channel_name: "Timber Titans" # https://www.youtube.com/@FurryFollies-v2p
     owner_email: "dkdhaker1212@gmail.com"
     # ^ ALWAYS record: the Gmail that owns the YouTube channel AND the GCP project.
