@@ -3,8 +3,8 @@
 
 channels:
   - id: channel_1                         # unique; used in DB, logs, secret names
-    tiktok_username: "kimvirtanen"        # no @  -- source profile (forestry machines)
-    tiktok_username_backup: "am.machinery"  # no @ -- emergency-only fallback, used automatically if the primary source runs dry or every candidate it offers fails to post. 6.5K followers, forage-harvester equipment dealer, real forestry-machine footage.
+    tiktok_username: "treesportsfans"  # no @ -- 14.6K followers, trees/forestry machines; tiny same-name YT (694 subs). Promoted 2026-10-25: kimvirtanen got ~1 view/video all October (source creator also has YT 2.4K subs + copyright-claim channels), moved to backup.
+    tiktok_username_backup: "kimvirtanen"  # no @ -- emergency fallback: previous primary (forestry ASMR, 8M followers); has small YouTube presence
     youtube_channel_name: "Timber Titans" # https://www.youtube.com/@FurryFollies-v2p
     owner_email: "dkdhaker1212@gmail.com"
     # ^ ALWAYS record: the Gmail that owns the YouTube channel AND the GCP project.
