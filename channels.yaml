@@ -3,8 +3,8 @@
 
 channels:
   - id: channel_1                         # unique; used in DB, logs, secret names
-    tiktok_username: "treesportsfans"  # no @ -- 14.6K followers, trees/forestry machines; tiny same-name YT (694 subs). Promoted 2026-10-25: kimvirtanen got ~1 view/video all October (source creator also has YT 2.4K subs + copyright-claim channels), moved to backup.
-    tiktok_username_backup: "kimvirtanen"  # no @ -- emergency fallback: previous primary (forestry ASMR, 8M followers); has small YouTube presence
+    tiktok_username: "corandivin"  # no @ -- 1.2M followers / 13.1M likes, real bushcraft & survival skills in the forest; YT search finds no channel by that name/handle. 2026-10-25 trend pass: survival skills / bushcraft clips = 25-28M views each on YT Shorts this week. Replaces treesportsfans (~0 views).
+    tiktok_username_backup: "kbsurvivalskill"  # no @ -- emergency fallback: 27K followers, Bushcraft survival skills in forest; no YT channel found.
     youtube_channel_name: "Timber Titans" # https://www.youtube.com/@FurryFollies-v2p
     owner_email: "dkdhaker1212@gmail.com"
     # ^ ALWAYS record: the Gmail that owns the YouTube channel AND the GCP project.
@@ -15,11 +15,10 @@ channels:
 
     videos_per_day: 1
     description_footer: ""
-    default_tags: [forestry, logging, heavy machinery, heavy equipment, harvester,
-                   forestry equipment, excavator, timber, John Deere, forest machine,
-                   forestry mulcher, satisfying machines]
-    youtube_category_id: "2"              # 2 Autos&Vehicles, 15 Pets&Animals,
-                                          # 24 Entertainment, 26 HowTo, 28 Sci&Tech
+    default_tags: [bushcraft, survival skills, camping, outdoors, forest survival, wilderness, shelter building,
+                   fire starting, survival tips, life hacks, primitive technology, woodcraft, off grid,
+                   survival, camping hacks, bushcraft skills, nature, axe, knife, build a shelter]
+    youtube_category_id: "26"             # 26 Howto & Style (survival / bushcraft skills)
     enabled: true
     max_retry_days: 7                     # failed download -> retried daily up to this
     shorts_max_seconds: 180              # <= this and vertical -> uploaded as a Short
@@ -70,9 +69,10 @@ channels:
       position: bottom                   # bottom | top
       accent_rgb: [240, 164, 32]
       hook_templates:
-        - "YOU WON'T BELIEVE THIS"
+        - "SURVIVAL HACK"
         - "WAIT FOR IT"
-        - "HOW IS THIS REAL?"
+        - "LEARN THIS"
+        - "FOREST SKILLS"
 
     # tiktok_username_slot2: "SECOND_ACCOUNT"   # add when backlog runs low (~1 month)
 
