@@ -19,7 +19,7 @@ channels:
                    fire starting, survival tips, life hacks, primitive technology, woodcraft, off grid,
                    survival, camping hacks, bushcraft skills, nature, axe, knife, build a shelter]
     youtube_category_id: "26"             # 26 Howto & Style (survival / bushcraft skills)
-    enabled: true
+    enabled: false                        # PAUSED 2026-11-11 by owner: ~0 views after many source swaps; workflows disabled too
     max_retry_days: 7                     # failed download -> retried daily up to this
     shorts_max_seconds: 180              # <= this and vertical -> uploaded as a Short
     min_video_seconds: 12                 # skip clips shorter than 12s
